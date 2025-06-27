@@ -175,8 +175,14 @@ coleop_extracted <- terra::extract(forest, coleop_vect)
 
 coleop_vect$forest <- coleop_extracted[,2]
 
+coleop_forest <- coleop_vect[!is.na(coleop_vect$forest), ]
+
+
+
 plot(forest)
-plot(coleop_vect, add = TRUE, col = "red", pch = 20, cex = 0.7)
+plot(coleop_forest, add = TRUE, col = "red", pch = 20, cex = 0.7)
+
+
 # # extract raster values
 # 
 # values_at_points <- terra::extract(germ, vect(coleop_sf_proj))

@@ -1,7 +1,7 @@
 #++++++++++++++++++++++++++++++++++++++++++++++++
 #
 # Workflow: how to get biodiversity info for specific land use type
-# Example Ecossystem types of Europe (EUNIS) and GBIF
+# Example Ecosystem types of Europe (EUNIS) and GBIF
 #
 # Author: Friederike Gebert
 #
@@ -21,6 +21,7 @@ library(rgbif)
 library(tidyverse)
 
 ecos <- rast("eea_r_3035_100_m_etm-terrestrial-r_2012_v3-1_r00.tif")
+saveRDS(ecos, "ecos.rds")
 
 plot(ecos)
 str(ecos)
@@ -118,9 +119,12 @@ coleop <- occ_download(
 #   Citation:
 #   GBIF Occurrence Download https://www.gbif.org/occurrence/download/0071922-250525065834625 Accessed from R via rgbif (https://github.com/ropensci/rgbif) on 2025-06-27
 
-coleop_d <- occ_download_get('0071922-250525065834625') %>%
+occ_download_wait('0080894-250525065834625')
+
+coleop_d <- occ_download_get('0080894-250525065834625') %>%
   occ_download_import()
 
+saveRDS(coleop_d, file="coleop_d.rds")
 
 # extract occurrence data
 
@@ -180,7 +184,25 @@ coleop_forest <- coleop_vect[!is.na(coleop_vect$forest), ]
 
 
 plot(forest)
-plot(coleop_forest, add = TRUE, col = "red", pch = 20, cex = 0.7)
+plot(coleop_forest, add = TRUE, col = "red", pch = 20, cex = 0.5)
+
+# calculate area of forest
+
+cell_areas <- cellSize(forest, unit="m")
+
+forest_areas <- mask(cell_areas, forest)
+
+# total forest area in m2
+
+forest_areas_m2 <- global(forest_areas, "sum", na.rm=T)[1,1]
+
+# convert to km2
+
+forest_areas_km <-  forest_areas_m2/1e6
+
+# calculate number of GBIF records for forest
+
+length(coleop_forest)
 
 
 # # extract raster values
@@ -188,4 +210,3 @@ plot(coleop_forest, add = TRUE, col = "red", pch = 20, cex = 0.7)
 # values_at_points <- terra::extract(germ, vect(coleop_sf_proj))
 # 
 # coleop_with_values <- cbind(coleop, values_at_points)
-

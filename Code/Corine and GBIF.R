@@ -5,13 +5,14 @@
 #
 # Author: Friederike Gebert
 #
-# Date: 01.07.2025
+# Date: 27.06.2025
 #
 #+++++++++++++++++++++++++++++++++++++++++++++++
 
 
 
 # setwd()
+# "C:/Users/fgebert/Senckenberg Dropbox/Friederike Gebert/Senckenberg Gelnhausen/BIodiversity Footprint/datasets/CORINE/u2018_clc2018_v2020_20u1_raster100m/u2018_clc2018_v2020_20u1_raster100m/DATA"
 
 library(terra)
 library(sf)
@@ -92,9 +93,9 @@ leaflet() %>%
 occ_count(country="DE")
 
 # get taxon key for Papilionoidea
-unique(gbif_data$superfamily)
+unique(gbif_data$family)
 
-search_results <- name_backbone("Papilionoidea")
+search_results <- name_backbone("Lepidoptera")
 
 # Extract the taxonKey
 
@@ -119,9 +120,9 @@ pwd <- "FG197988*Ext*"
 email <- "friederike.gebert@senckenberg.de"
 
 
-coleop <- occ_download(
+lepi <- occ_download(
   pred_and(
-    pred("taxonKey", 1470),        # Coleoptera
+    pred("taxonKey", 797),        # Lepidoptera
     pred("country", "DE"),         # Germany
     pred("hasCoordinate", TRUE)
   ),
@@ -157,30 +158,111 @@ coleop <- occ_download(
 #   Citation:
 #   GBIF Occurrence Download https://www.gbif.org/occurrence/download/0071922-250525065834625 Accessed from R via rgbif (https://github.com/ropensci/rgbif) on 2025-06-27
 
-occ_download_wait('0080894-250525065834625')
+occ_download_wait('0084606-250525065834625')
 
-coleop_d <- occ_download_get('0080894-250525065834625') %>%
+lepi_d <- occ_download_get('0084606-250525065834625') %>%
   occ_download_import()
 
-saveRDS(coleop_d, file="coleop_d.rds")
+saveRDS(lepi_d, file="lepi_d.rds")
+names(lepi_d)
+
+unique(lepi_d$year)
+
+
+# butterflies in Germany: 7 families: 
+
+# Hesperiidae (Dickkopffalter)
+# Papilionidae (Ritterfalter)
+# Pieridae (Weißlinge)
+# Lycaenidae (Bläulinge)
+# Riodinidae (Würfelfalter)
+# Nymphalidae (Edelfalter)
+# Satyridae (Augenfalter)
+
+
+# filter so that 2 years plus minus corine: years 2016, 2017, 2018, 2019, 2020
+
+lepi_d_2017_2020 <- lepi_d %>% 
+  filter(year %in% c(2017, 2018, 2019, 2020))
+
+names(lepi_d_2017_2020)
+unique(lepi_d_2017_2020$family)
+
+# filter to butterfly families
+
+butterfly_families <- c("Hesperiidae", "Papilionidae", "Pieridae", 
+                        "Lycaenidae", "Riodinidae", "Nymphalidae", "Satyridae")
+
+lepi_d_2017_2020_but <- lepi_d_2017_2020 %>% 
+  filter(family %in% butterfly_families)
+
+saveRDS(lepi_d_2017_2020_but, file="lepi_d_2017_2020_but.rds")
+
+
 
 # extract occurrence data
 
-coleop_d <- coleop_d %>%
-  select(decimalLongitude, decimalLatitude) %>%
+but <- lepi_d_2017_2020_but %>%
+  dplyr::select(decimalLongitude, decimalLatitude, species, family) %>%
   filter(!is.na(decimalLongitude) & !is.na(decimalLatitude))
 
 # convert to sf object
 
-coleop_sf <- st_as_sf(coleop_d, coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
+but_sf <- st_as_sf(but, coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
 
 
-# reproject coleop_sf to EPSG 3035
+# reproject but_sf to EPSG 3035
 
-coleop_sf_proj <- st_transform(coleop_sf, crs = crs(ecos))
+but_sf_proj <- st_transform(but_sf, crs = crs(germ))
 
 plot(germ)
-plot(coleop_sf_proj$geometry, add = TRUE, col = "deeppink", pch = 20, cex = 0.6)
+plot(but_sf_proj$geometry, add = TRUE, col = "deeppink", pch = 20, cex = 0.6)
+
+saveRDS(germ, file="germ.rds")
+saveRDS(but_sf_crop, file="but_sf_crop.rds")
+# crop but to germ
+
+# Convert raster extent to sf polygon
+germ_extent <- ext(germ) %>%
+  as.polygons() %>%
+  st_as_sf()
+
+# Ensure both use the same CRS (with st_transform)
+# Now crop the points
+but_sf_crop <- st_crop(but_sf_proj, germ_extent)
+
+
+# plot on Germany map
+
+germ_df <- as.data.frame(germ, xy = TRUE, na.rm = TRUE)
+names(germ_df)[3] <- "land_use"
+
+# nicer Germany map
+ggplot() +
+  geom_raster(data = germ_df, aes(x = x, y = y, fill = land_use)) +
+  scale_fill_viridis_d(name = "Land Use")+
+  coord_sf() +
+  guides(fill ="none")+
+  theme_minimal()
+
+
+ggplot() +
+  geom_raster(data = germ_df, aes(x = x, y = y, fill = land_use)) +
+  scale_fill_viridis_d(name = "Land Use") +  # or use scale_fill_manual for custom colors
+  geom_sf(data = but_sf_crop, color = "deeppink", size = 0.6, alpha = 0.7) +
+  coord_sf() +
+  guides(fill ="none")+
+  theme_minimal() +
+  labs(title = "Butterflies of Germany",
+       x = "Longitude", y = "Latitude")
+
+
+
+
+
+
+plot(forest, col="orange")
+plot(but_sf_proj$geometry, add = TRUE, col = "deeppink", pch = 20, cex = 0.6)
 
 
 # crop to land use type "Woodland and forest"

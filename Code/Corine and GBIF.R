@@ -258,7 +258,7 @@ ggplot() +
 
 
 
-
+plot(germ)
 
 
 plot(forest, col="orange")

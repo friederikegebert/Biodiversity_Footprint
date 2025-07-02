@@ -27,6 +27,10 @@ library(scico)
 library(viridis)
 library(Polychrome)
 library(colorspace)
+library(remotes)
+library(giscoR)
+
+remotes::install_github("ropengov/giscoR")
 
 # with corine as raster ####
 corine <- rast("U2018_CLC2018_V2020_20u1.tif")
@@ -411,7 +415,7 @@ text(x = 0, y = 0.85, labels = "Land use classes", font = 2, cex = 0.9, adj = 0)
 legend("topright", legend = lu_labels, fill = landuse_col_vector, cex = 0.6, bty = "n", xpd = TRUE)
 
 # plot coords on map of germany
-plot(germany)
+plot(ger)
 points(coords, pch = 20, col = adjustcolor("#FF1493", alpha.f = 0.3), cex = 0.5)
 
 layout(matrix(c(1,2), nrow=1), widths = c(5,2))  
@@ -431,6 +435,85 @@ legend(x = 0, y = 0.8, legend = lu_labels, fill = landuse_col_vector, cex = 0.6,
 
 plot(forest, col="orange")
 plot(but_sf_proj$geometry, add = TRUE, col = "deeppink", pch = 20, cex = 0.6)
+
+
+# plot but_sf_crop_masked with outline of Germany
+but_sf_crop_masked
+
+plot(but_sf_crop_masked["species"], pch = 20, col = adjustcolor("#FF1493", 0.3), cex = 0.5, main = "Butterfly species in Germany")
+
+
+germany_sf <- ne_countries(scale = "medium", country = "Germany", returnclass = "sf")
+
+# Check CRS and transform if necessary to match your raster `germ`
+st_crs(germany_sf)
+# Suppose your raster is in ETRS89 / LAEA Europe (EPSG:3035), transform to that:
+germany_sf_proj <- st_transform(germany_sf, crs = st_crs(but_sf_crop_masked))
+
+st_crs(but_sf_crop_masked)
+st_crs(germany_sf_proj )
+# plot(st_geometry(germany_sf_proj), add = TRUE, border = "black", lwd = 2)
+
+
+# Plot points first
+plot(st_geometry(but_sf_crop_masked), pch = 20, col = adjustcolor("#FF1493", 0.3), cex = 0.5, 
+     xlim = st_bbox(germany_sf_proj)[c("xmin", "xmax")], 
+     ylim = st_bbox(germany_sf_proj)[c("ymin", "ymax")])
+
+# Then add Germany border polygon
+plot(st_geometry(germany_sf_proj), add = TRUE, border = "black", lwd = 2, col=NA)
+
+plot(st_geometry(germany_sf_proj), border = "black", lwd = 2, col = NA)
+
+# not perfect match with border
+
+
+germany_gisco <- gisco_get_nuts(
+  nuts_level = 0,
+  country = "DE",
+  resolution = "60",
+  year = "2021",
+  epsg = 3035  # LAEA Europe
+)
+
+
+plot(st_geometry(but_sf_crop_masked), pch = 20, col = adjustcolor("#FF1493", 0.3), cex = 0.5, 
+     xlim = st_bbox(germany_gisco)[c("xmin", "xmax")], 
+     ylim = st_bbox(germany_gisco)[c("ymin", "ymax")])
+
+plot(st_geometry(germany_gisco), add = TRUE, border = "black", lwd = 1, col = NA)
+# even worse - let's leave it
+
+
+
+# one plot for each family
+families <- c("Hesperiidae", "Papilionidae", "Pieridae", "Lycaenidae", "Riodinidae", "Nymphalidae", "Satyridae")
+
+fam_colors <- c(
+  "Hesperiidae" = "#E41A1C",   # rot
+  "Papilionidae" = "#377EB8",  # blau
+  "Pieridae" = "darkgrey",      # grey
+  "Lycaenidae" = "#984EA3",    # lila
+  "Riodinidae" = "#FF7F00",    # orange
+  "Nymphalidae" = "#A65628",   # braun
+  "Satyridae" = "black"      # black
+)
+
+
+par(mfrow = c(3, 3), mar = c(1, 1, 1, 1)) 
+
+for (fam in families) {
+  
+  # Untermenge nach Familie
+  fam_data <- but_sf_crop_masked[but_sf_crop_masked$family == fam, ]
+  
+  # Plot
+  plot(st_geometry(fam_data),
+       pch = 20,
+       col = adjustcolor(fam_colors[fam], 0.4),
+       cex = 0.5,
+       main = paste(fam))
+}
 
 
 # crop to land use type "Woodland and forest"

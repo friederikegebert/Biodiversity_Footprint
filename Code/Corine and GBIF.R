@@ -22,7 +22,11 @@ library(rgbif)
 library(tidyverse)
 library(leaflet)
 library(raster)
-
+library(colorspace)
+library(scico)
+library(viridis)
+library(Polychrome)
+library(colorspace)
 
 # with corine as raster ####
 corine <- rast("U2018_CLC2018_V2020_20u1.tif")
@@ -197,7 +201,7 @@ lepi_d_2017_2020_but <- lepi_d_2017_2020 %>%
   filter(family %in% butterfly_families)
 
 saveRDS(lepi_d_2017_2020_but, file="lepi_d_2017_2020_but.rds")
-
+lepi_d_2017_2020_but <- readRDS("lepi_d_2017_2020_but.rds")
 
 
 # extract occurrence data
@@ -220,6 +224,12 @@ plot(but_sf_proj$geometry, add = TRUE, col = "deeppink", pch = 20, cex = 0.6)
 
 saveRDS(germ, file="germ.rds")
 saveRDS(but_sf_crop, file="but_sf_crop.rds")
+
+germ <- readRDS("germ.rds")
+germ <- terra::unwrap(germ)
+but_sf_crop <- readRDS("but_sf_crop.rds")
+
+
 # crop but to germ
 
 # Convert raster extent to sf polygon
@@ -256,9 +266,167 @@ ggplot() +
   labs(title = "Butterflies of Germany",
        x = "Longitude", y = "Latitude")
 
-
+# Plot nice Corine graph
 
 plot(germ)
+unique(germ$LABEL3)
+names(germ)
+
+colors <- grDevices::rainbow(36)
+plot(germ, col= colors)
+# not colourblind-friendly
+
+cb_colors <- qualitative_hcl(36, palette = "Dark 3")
+cb_colors <- scico(36, palette = "batlow")
+cb_colors <- scico(36, palette = "hawaii")
+cb_colors <- scico(36, palette = "romaO")
+cb_colors <- scico(36, palette = "berlin")
+cb_colors <- scico(36, palette = "vikO")
+
+cb_colors <- createPalette(36, seedcolors = c("#117733", "#DDCC77", "#44AA99", "#999933"))
+
+plot(germ, col= cb_colors)
+
+# manually assign colours
+
+landuse_colors <- c(
+  # Urban (reds & purples)
+  "Continuous urban fabric" = "#e31a1c",   # strong red
+  "Discontinuous urban fabric" = "#fb9a99", 
+  "Industrial or commercial units" = "#a63603",
+  "Road and rail networks and associated land" = "#fd8d3c",
+  "Port areas" = "#6a3d9a", 
+  "Airports" = "#cab2d6",
+  "Mineral extraction sites" = "#b15928",
+  "Dump sites" = "#8c6d31",
+  "Construction sites" = "#d9d9d9",
+  
+  # Urban green & leisure (greens)
+  "Green urban areas" = "#66c2a5",
+  "Sport and leisure facilities" = "#a6d854",
+  
+  # Agriculture (yellows & tans)
+  "Non-irrigated arable land" = "#ffff99",
+  "Vineyards" = "#e6f5c9",
+  "Fruit trees and berry plantations" = "#fdbf6f",
+  "Pastures" = "#d9ef8b",
+  "Complex cultivation patterns" = "#ffed6f",
+  "Land principally occupied by agriculture, with significant areas of natural vegetation" = "#bc80bd",
+  
+  # Forests (greens)
+  "Broad-leaved forest" = "#1b9e77",
+  "Coniferous forest" = "#00441b",
+  "Mixed forest" = "#2ca25f",
+  
+  # Natural vegetation (greens and browns)
+  "Natural grasslands" = "#b2df8a",
+  "Moors and heathland" = "#d8b365",
+  "Transitional woodland-shrub" = "#8dd3c7",
+  
+  # Sparsely vegetated (greys and browns)
+  "Beaches, dunes, sands" = "#fdd49e",
+  "Bare rocks" = "#bdbdbd",
+  "Sparsely vegetated areas" = "#e5c494",
+  "Glaciers and perpetual snow" = "#f0f0f0",
+  
+  # Wetlands (blues and turquoises)
+  "Inland marshes" = "#a6cee3",
+  "Peat bogs" = "#b3cde3",
+  "Salt marshes" = "#80b1d3",
+  "Intertidal flats" = "#bfd3e6",
+  
+  # Water (deep blues)
+  "Water courses" = "#1f78b4",
+  "Water bodies" = "#006d2c",
+  "Coastal lagoons" = "#225ea8",
+  "Estuaries" = "#253494",
+  "Sea and ocean" = "#08306b"
+)
+
+lu_ids <- 1:36
+lu_labels <- c(
+  "Continuous urban fabric", "Discontinuous urban fabric",
+  "Industrial or commercial units", "Road and rail networks and associated land",
+  "Port areas", "Airports", "Mineral extraction sites", "Dump sites", "Construction sites",
+  "Green urban areas", "Sport and leisure facilities", "Non-irrigated arable land",
+  "Vineyards", "Fruit trees and berry plantations", "Pastures", "Complex cultivation patterns",
+  "Land principally occupied by agriculture, with significant areas of natural vegetation",
+  "Broad-leaved forest", "Coniferous forest", "Mixed forest", "Natural grasslands",
+  "Moors and heathland", "Transitional woodland-shrub", "Beaches, dunes, sands",
+  "Bare rocks", "Sparsely vegetated areas", "Glaciers and perpetual snow", "Inland marshes",
+  "Peat bogs", "Salt marshes", "Intertidal flats", "Water courses", "Water bodies",
+  "Coastal lagoons", "Estuaries", "Sea and ocean"
+)
+
+# Assign factor levels to the raster
+levels(germ) <- data.frame(ID = lu_ids, LABEL3 = lu_labels)
+
+# Match colours in correct order
+landuse_col_vector <- landuse_colors[lu_labels]
+
+# Plot
+plot(germ, col = landuse_col_vector, main = "Land Use Classes (36 categories)", axes = FALSE, legend = FALSE)
+
+# Optional: Add legend manually
+legend("topright", legend = lu_labels, fill = landuse_col_vector, cex = 0.5, ncol = 2, bty = "n")
+
+#legend not nice
+
+# get nicer map
+
+# mask but_sf_crop to land area of Germany
+
+# Convert raster to polygons (masking NA cells)
+germ_poly <- as.polygons(germ[[1]])  # use the first layer
+germ_poly <- st_as_sf(germ_poly)
+germ_poly <- germ_poly[!is.na(germ_poly[[1]]), ]  # keep only valid land use cells
+
+# Ensure CRS match
+germ_poly <- st_transform(germ_poly, st_crs(but_sf_crop))
+
+# Spatial intersection (keeps only points on land)
+but_sf_crop_masked <- st_intersection(but_sf_crop, germ_poly) # takes too long
+
+
+germany <- ne_countries(country = "Germany", returnclass = "sf")
+germany <- st_transform(germany, st_crs(but_sf_crop))
+
+but_sf_crop_masked <- st_join(but_sf_crop, germany, join = st_within, left = FALSE)
+saveRDS(but_sf_crop_masked, "but_sf_crop_masked.rds")
+but_sf_crop_masked <- readRDS("but_sf_crop_masked.rds")
+# extract coordinates from point objects
+coords <- st_coordinates(but_sf_crop_masked)
+
+
+layout(matrix(c(1,2), nrow=1), widths=c(4,1))  # 4:1 ratio for map:legend
+
+# Plot the map (left side)
+par(mar=c(2,2,2,1))  # small margins
+plot(germ, col = landuse_col_vector, main = "Germany with Corine land use classes", axes = FALSE, legend = FALSE)
+
+# Plot the legend (right side)
+# par(mar=c(1,0,1,0))  # remove margins for clean legend
+# plot.new()
+text(x = 0, y = 0.85, labels = "Land use classes", font = 2, cex = 0.9, adj = 0)
+legend("topright", legend = lu_labels, fill = landuse_col_vector, cex = 0.6, bty = "n", xpd = TRUE)
+
+# plot coords on map of germany
+plot(germany)
+points(coords, pch = 20, col = adjustcolor("#FF1493", alpha.f = 0.3), cex = 0.5)
+
+layout(matrix(c(1,2), nrow=1), widths = c(5,2))  
+
+# 1) Plot map + points
+par(mar = c(2,2,2,1))
+plot(germ, col = landuse_col_vector, main = "Germany with Corine land use classes", axes = FALSE, legend = FALSE)
+points(coords, pch = 20, col = adjustcolor("#FF1493", alpha.f = 0.3), cex = 0.5)
+
+# 2) New panel for legend
+par(mar = c(2,0.5,2,1))  # adjust margins as needed
+plot.new()  # start blank plot in second panel
+text(x = 0, y = 0.82, labels = "Land use classes", font = 2, cex = 0.9, adj = 0)
+legend(x = 0, y = 0.8, legend = lu_labels, fill = landuse_col_vector, cex = 0.6, bty = "n", xpd = TRUE)
+
 
 
 plot(forest, col="orange")

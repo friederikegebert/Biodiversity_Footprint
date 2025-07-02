@@ -1,6 +1,5 @@
-
 ---
-title: "Corine and GBIF"
+title: "Corine and GBIF trial"
 format: pptx
 editor: visual
 ---
@@ -126,5 +125,80 @@ par(mar = c(2,0.5,2,1))  # adjust margins as needed
 plot.new()  # start blank plot in second panel
 text(x = 0, y = 0.82, labels = "Land use classes", font = 2, cex = 0.9, adj = 0)
 legend(x = 0, y = 0.8, legend = lu_labels, fill = landuse_col_vector, cex = 0.6, bty = "n", xpd = TRUE)
+
+
+Butterflies in Germany
+
+:::: {.columns}
+
+::: {.column width="20%"}
+
+7 families: 
+
+Hesperiidae (Dickkopffalter) 
+
+Papilionidae (Ritterfalter) 
+
+Pieridae (Weißlinge) 
+
+Lycaenidae (Bläulinge) 
+
+Riodinidae (Würfelfalter) 
+
+Nymphalidae (Edelfalter) 
+
+Satyridae (Augenfalter)
+
+429158 features
+
+:::
+
+::: {.column width="80%"}
+
+{r, echo=F}
+mar = c(1, 1, 1, 1)
+plot(but_sf_crop_masked["species"], pch = 20, col = adjustcolor("#FF1493", 0.3), cex = 0.5)
+
+:::
+
+::::
+
+Butterfly families
+
+{r, echo=F}
+families <- c("Hesperiidae", "Papilionidae", "Pieridae", "Lycaenidae", "Riodinidae", "Nymphalidae", "Satyridae")
+
+fam_colors <- c(
+  "Hesperiidae" = "#E41A1C",   # rot
+  "Papilionidae" = "#377EB8",  # blau
+  "Pieridae" = "darkgrey",      # grey
+  "Lycaenidae" = "#984EA3",    # lila
+  "Riodinidae" = "#FF7F00",    # orange
+  "Nymphalidae" = "#A65628",   # braun
+  "Satyridae" = "black"      # black
+)
+
+
+par(mfrow = c(3, 3), mar = c(1, 1, 1, 1)) 
+
+for (fam in families) {
+  
+  # Untermenge nach Familie
+  fam_data <- but_sf_crop_masked[but_sf_crop_masked$family == fam, ]
+  
+  # Plot
+  plot(st_geometry(fam_data),
+       pch = 20,
+       col = adjustcolor(fam_colors[fam], 0.4),
+       cex = 0.5,
+       main = paste(fam))
+}
+
+in case not rendering
+
+{r}
+
+# unlink("Corine and GBIF_files", recursive = TRUE, force = TRUE)
+# unlink("Corine and GBIF.pptx", force = TRUE)
 
 
